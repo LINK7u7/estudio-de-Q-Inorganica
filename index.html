@@ -1,0 +1,1460 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Cabecera indispensable para evitar el Error 153 de YouTube -->
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>Reproductor de Playlists de YouTube</title>
+  <style>
+    :root {
+      --bg-dark: #0b0f19;
+      --bg-card: #151d2f;
+      --bg-card-hover: #1e2942;
+      --bg-sidebar: #101726;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --primary: #ef4444;
+      --primary-hover: #dc2626;
+      --accent: #3b82f6;
+      --border-color: #243049;
+      --active-item: #1e2c4d;
+      --radius: 12px;
+      --transition: all 0.25s ease;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* AVISO SI SE ABRE LOCALMENTE CON FILE:/// */
+    #file-protocol-warning {
+      display: none;
+      background: linear-gradient(90deg, #991b1b, #7f1d1d);
+      color: #fef2f2;
+      padding: 14px 20px;
+      border-bottom: 2px solid #ef4444;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    #file-protocol-warning .warning-container {
+      max-width: 1560px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 15px;
+      flex-wrap: wrap;
+    }
+
+    .warning-badge {
+      background: rgba(0, 0, 0, 0.4);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 700;
+      font-size: 0.8rem;
+    }
+
+    /* HEADER */
+    header {
+      background: rgba(16, 23, 38, 0.95);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 1rem 1.75rem;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .brand-icon {
+      background: var(--primary);
+      color: white;
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4);
+    }
+
+    .brand-text h1 {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .brand-text p {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 16px;
+      border-radius: 8px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: var(--transition);
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .btn-secondary {
+      background: #1e293b;
+      color: var(--text-main);
+      border-color: var(--border-color);
+    }
+
+    .btn-secondary:hover {
+      background: #2b3952;
+      border-color: #3b4b68;
+    }
+
+    /* CONTENEDOR PRINCIPAL */
+    main {
+      flex: 1;
+      width: 100%;
+      max-width: 1560px;
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+    }
+
+    /* VISTA 1: GRID DE 5 PLAYLISTS */
+    #playlist-grid-view {
+      display: block;
+      animation: fadeIn 0.35s ease;
+    }
+
+    .section-header {
+      margin-bottom: 2rem;
+    }
+
+    .section-header h2 {
+      font-size: 2rem;
+      font-weight: 800;
+      margin-bottom: 0.5rem;
+      background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .section-header p {
+      color: var(--text-muted);
+      font-size: 1rem;
+      max-width: 700px;
+      line-height: 1.5;
+    }
+
+    .playlists-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: 1.75rem;
+    }
+
+    .playlist-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      overflow: hidden;
+      cursor: pointer;
+      transition: var(--transition);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .playlist-card:hover {
+      transform: translateY(-6px);
+      border-color: #3b4d75;
+      box-shadow: 0 16px 32px -8px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(59, 130, 246, 0.25);
+    }
+
+    .playlist-thumb {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background-color: #0d131f;
+      overflow: hidden;
+    }
+
+    .playlist-thumb img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transition: transform 0.4s ease;
+    }
+
+    .playlist-card:hover .playlist-thumb img {
+      transform: scale(1.06);
+    }
+
+    .playlist-badge {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(15, 23, 42, 0.9);
+      backdrop-filter: blur(6px);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #38bdf8;
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      z-index: 2;
+    }
+
+    .play-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    }
+
+    .playlist-card:hover .play-overlay {
+      opacity: 1;
+    }
+
+    .play-circle {
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: var(--primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 24px;
+      box-shadow: 0 8px 20px rgba(239, 68, 68, 0.55);
+      transform: scale(0.8);
+      transition: transform 0.25s ease;
+    }
+
+    .playlist-card:hover .play-circle {
+      transform: scale(1);
+    }
+
+    .playlist-card-content {
+      padding: 1.3rem;
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    .playlist-card-title {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 0.6rem;
+      color: #fff;
+      line-height: 1.35;
+    }
+
+    .playlist-card-desc {
+      font-size: 0.88rem;
+      color: var(--text-muted);
+      line-height: 1.55;
+      margin-bottom: 1.25rem;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      flex: 1;
+    }
+
+    .playlist-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid var(--border-color);
+      padding-top: 1rem;
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+
+    .footer-action {
+      color: #60a5fa;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* VISTA 2: REPRODUCTOR Y PANEL LATERAL */
+    #playlist-player-view {
+      display: none;
+      animation: fadeIn 0.35s ease;
+    }
+
+    .player-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.25rem;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 500;
+      transition: var(--transition);
+    }
+
+    .back-btn:hover {
+      background: var(--bg-card-hover);
+      border-color: #3b4d75;
+      color: #fff;
+    }
+
+    .active-playlist-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .playlist-tag {
+      background: rgba(239, 68, 68, 0.15);
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      color: #f87171;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .active-playlist-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .sidebar-toggle-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 16px;
+      background: #1e293b;
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.88rem;
+      font-weight: 600;
+      transition: var(--transition);
+    }
+
+    .sidebar-toggle-btn:hover {
+      background: #2b3952;
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    .layout-container {
+      display: flex;
+      gap: 1.5rem;
+      position: relative;
+      align-items: flex-start;
+      transition: all 0.3s ease;
+    }
+
+    /* COLUMNA PRINCIPAL */
+    .player-main-col {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* MARCO DEL VIDEO CON RELACIÓN DE ASPECTO 16:9 RIGUROSA */
+    .video-wrapper {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #000;
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.7);
+      border: 1px solid var(--border-color);
+    }
+
+    /* CORRECCIÓN: POSICIONAMIENTO ABSOLUTO PARA EVITAR DEFORMACIONES EN EL EMBED */
+    #yt-player-container,
+    .video-wrapper iframe {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+    }
+
+    /* BARRA DE CONTROLES */
+    .controls-bar {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 0.9rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .nav-controls {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .control-btn {
+      background: #1e293b;
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 8px 15px;
+      border-radius: 7px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.86rem;
+      font-weight: 500;
+      transition: var(--transition);
+      user-select: none;
+      text-decoration: none;
+    }
+
+    .control-btn:hover:not(:disabled) {
+      background: #2d3b54;
+      border-color: #475a80;
+    }
+
+    .control-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .control-btn.primary {
+      background: var(--primary);
+      border-color: transparent;
+      color: white;
+    }
+
+    .control-btn.primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .player-status-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.88rem;
+      color: #94a3b8;
+    }
+
+    .status-dot {
+      width: 9px;
+      height: 9px;
+      background: #10b981;
+      border-radius: 50%;
+      box-shadow: 0 0 10px #10b981;
+    }
+
+    .autoplay-tag {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      padding: 4px 9px;
+      border-radius: 6px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* TARJETA DE DESCRIPCIÓN */
+    .description-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      padding: 1.6rem;
+      position: relative;
+    }
+
+    .desc-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 0.85rem;
+    }
+
+    .desc-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .desc-title-wrap h3 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .edit-desc-btn {
+      background: #1e293b;
+      border: 1px solid var(--border-color);
+      color: #60a5fa;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: var(--transition);
+    }
+
+    .edit-desc-btn:hover {
+      background: rgba(59, 130, 246, 0.2);
+      border-color: var(--accent);
+    }
+
+    .desc-content {
+      color: #cbd5e1;
+      font-size: 0.96rem;
+      line-height: 1.7;
+      white-space: pre-line;
+      outline: none;
+      padding: 6px;
+      border-radius: 6px;
+      transition: var(--transition);
+    }
+
+    .desc-content[contenteditable="true"] {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px dashed var(--accent);
+      padding: 12px;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+    }
+
+    .desc-help-note {
+      margin-top: 1.25rem;
+      padding: 10px 14px;
+      background: rgba(59, 130, 246, 0.08);
+      border-left: 3px solid var(--accent);
+      border-radius: 6px;
+      font-size: 0.82rem;
+      color: #93c5fd;
+      line-height: 1.5;
+    }
+
+    /* PANEL LATERAL DE VIDEOS */
+    .playlist-sidebar {
+      width: 410px;
+      background: var(--bg-sidebar);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      height: 750px;
+      max-height: calc(100vh - 120px);
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.25s ease, transform 0.3s ease;
+      overflow: hidden;
+      flex-shrink: 0;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    }
+
+    .playlist-sidebar.collapsed {
+      width: 0;
+      border: none;
+      padding: 0;
+      margin: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .sidebar-header {
+      padding: 1.1rem 1.25rem;
+      background: #131c30;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .sidebar-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .sidebar-badge {
+      background: #1e2942;
+      border: 1px solid var(--border-color);
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: #38bdf8;
+      padding: 3px 8px;
+      border-radius: 12px;
+    }
+
+    .close-sidebar-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 1.3rem;
+      padding: 4px 8px;
+      border-radius: 6px;
+      line-height: 1;
+      transition: var(--transition);
+    }
+
+    .close-sidebar-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .sidebar-search-box {
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--border-color);
+      background: #0f1626;
+    }
+
+    .search-input {
+      width: 100%;
+      background: #172138;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 0.86rem;
+      color: #fff;
+      outline: none;
+      transition: var(--transition);
+    }
+
+    .search-input:focus {
+      border-color: var(--accent);
+      background: #1b2640;
+    }
+
+    .sidebar-video-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0.6rem;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .sidebar-video-list::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    .sidebar-video-list::-webkit-scrollbar-thumb {
+      background: #25334e;
+      border-radius: 3px;
+    }
+
+    .video-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      background: transparent;
+      border: 1px solid transparent;
+      transition: var(--transition);
+      position: relative;
+    }
+
+    .video-item:hover {
+      background: #192338;
+      border-color: #273756;
+    }
+
+    .video-item.active {
+      background: var(--active-item);
+      border-color: rgba(59, 130, 246, 0.55);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    }
+
+    .item-index {
+      font-size: 0.82rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      min-width: 24px;
+      text-align: center;
+    }
+
+    .video-item.active .item-index {
+      color: var(--primary);
+    }
+
+    .item-thumb-box {
+      position: relative;
+      width: 100px;
+      height: 56px;
+      border-radius: 6px;
+      overflow: hidden;
+      background: #0b0f19;
+      flex-shrink: 0;
+    }
+
+    .item-thumb-box img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .item-playing-icon {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.65);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+      font-size: 20px;
+    }
+
+    .video-item.active .item-playing-icon {
+      display: flex;
+    }
+
+    .item-details {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .item-title {
+      font-size: 0.86rem;
+      font-weight: 500;
+      color: #e2e8f0;
+      line-height: 1.35;
+      margin-bottom: 3px;
+      white-space: normal;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .video-item.active .item-title {
+      color: #60a5fa;
+      font-weight: 600;
+    }
+
+    .item-badge {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+    }
+
+    .loading-spinner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 1rem;
+      color: var(--text-muted);
+      font-size: 0.88rem;
+      gap: 14px;
+    }
+
+    .spinner {
+      width: 30px;
+      height: 30px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 1024px) {
+      .layout-container {
+        flex-direction: column;
+      }
+      .playlist-sidebar {
+        width: 100%;
+        height: 500px;
+      }
+      .playlist-sidebar.collapsed {
+        display: none;
+      }
+    }
+
+    @media (max-width: 640px) {
+      main {
+        padding: 1rem;
+      }
+      .playlists-grid {
+        grid-template-columns: 1fr;
+      }
+      .controls-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .nav-controls {
+        width: 100%;
+        justify-content: space-between;
+      }
+      .player-status-badge {
+        justify-content: space-between;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- AVISO DE PROTOCOLO LOCAL FILE:/// SI APLICA -->
+  <div id="file-protocol-warning">
+    <div class="warning-container">
+      <div>
+        <span class="warning-badge">ATENCIÓN: ERROR 153</span>
+        Has abierto el archivo con <code>file:///</code> (doble clic). YouTube bloquea reproductores locales por política de seguridad y lanza el <strong>Error 153</strong>. Para reproducir sin errores, abre este archivo mediante un servidor local (por ejemplo: extensión <strong>Live Server</strong> de VS Code, o en terminal con <code>python -m http.server</code>).
+      </div>
+      <button class="btn btn-secondary" onclick="document.getElementById('file-protocol-warning').style.display='none'" style="padding:4px 10px; font-size:0.75rem;">Entendido ✕</button>
+    </div>
+  </div>
+
+  <!-- BARRA SUPERIOR -->
+  <header>
+    <div class="brand" onclick="goToHome()" title="Ir al inicio">
+      <div class="brand-icon">▶</div>
+      <div class="brand-text">
+        <h1>Centro de Playlists</h1>
+        <p>Reproducción automática y explorador de videos</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button id="header-playlist-btn" class="btn btn-secondary" onclick="toggleSidebar()" style="display: none;">
+        <span>📋</span>
+        <span id="header-btn-text">Ocultar lista</span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <!-- VISTA 1: SELECTOR DE LAS 5 PLAYLISTS -->
+    <section id="playlist-grid-view">
+      <div class="section-header">
+        <h2>Colección de Playlists</h2>
+        <p>Haz clic en cualquiera de las 5 playlists para abrir su reproductor. Podrás elegir cualquier video de la lista o dejar que se reproduzcan automáticamente en secuencia.</p>
+      </div>
+      <div class="playlists-grid" id="playlists-cards-container">
+        <!-- Renderizado por JS -->
+      </div>
+    </section>
+
+    <!-- VISTA 2: REPRODUCTOR Y PANEL LATERAL DESPLEGABLE -->
+    <section id="playlist-player-view">
+      <div class="player-header">
+        <button class="back-btn" onclick="goToHome()">
+          ← Volver a las playlists
+        </button>
+        <div class="active-playlist-info">
+          <span class="playlist-tag" id="current-playlist-tag">Playlist 1</span>
+          <span class="active-playlist-title" id="current-playlist-title">Título de la Playlist</span>
+        </div>
+        <button class="sidebar-toggle-btn" id="toggle-sidebar-btn" onclick="toggleSidebar()">
+          📋 <span id="toggle-sidebar-label">Ocultar lista al costado</span>
+        </button>
+      </div>
+
+      <div class="layout-container" id="player-layout">
+        <!-- Columna Izquierda: Reproductor de Video, Controles y Descripción -->
+        <div class="player-main-col">
+          <div class="video-wrapper" id="video-wrapper-box">
+            <div id="yt-player-container"></div>
+          </div>
+
+          <!-- Barra de Navegación del Reproductor -->
+          <div class="controls-bar">
+            <div class="nav-controls">
+              <button class="control-btn" id="prev-btn" onclick="playPreviousVideo()" title="Video Anterior">
+                ⏮ Anterior
+              </button>
+              <button class="control-btn primary" id="toggle-play-btn" onclick="togglePlayPause()" title="Pausar / Reproducir">
+                ⏸ Pausa
+              </button>
+              <button class="control-btn" id="next-btn" onclick="playNextVideo()" title="Siguiente Video">
+                ⏭ Siguiente
+              </button>
+              <a class="control-btn" id="open-youtube-direct" href="#" target="_blank" title="Abrir esta lista directamente en YouTube">
+                ↗ Abrir en YouTube
+              </a>
+            </div>
+
+            <div class="player-status-badge">
+              <span class="status-dot"></span>
+              <span id="playback-index-text">Cargando reproductor...</span>
+              <span class="autoplay-tag" title="Al terminar un video avanza automáticamente al siguiente">⚡ Autoplay activo</span>
+            </div>
+          </div>
+
+          <!-- Tarjeta de Descripción Personalizable -->
+          <div class="description-card">
+            <div class="desc-header">
+              <div class="desc-title-wrap">
+                <span>📝</span>
+                <h3 id="desc-box-title">Descripción de la Playlist</h3>
+              </div>
+              <button class="edit-desc-btn" id="edit-desc-action-btn" onclick="toggleEditDescription()">
+                ✏️ Editar descripción
+              </button>
+            </div>
+
+            <div id="playlist-description-text" class="desc-content">
+              Cargando descripción...
+            </div>
+
+            <div class="desc-help-note">
+              💡 <strong>Personalización:</strong> Puedes pulsar en <strong>"Editar descripción"</strong> para redactarla y guardarla aquí mismo en tu navegador, o modificar la propiedad <code>description</code> en el código dentro de <code>PLAYLISTS_CONFIG</code>.
+            </div>
+          </div>
+        </div>
+
+        <!-- Columna Derecha: Panel Lateral Desplegable de Videos -->
+        <aside class="playlist-sidebar" id="playlist-sidebar">
+          <div class="sidebar-header">
+            <div class="sidebar-title">
+              <span>Videos de la Lista</span>
+              <span class="sidebar-badge" id="sidebar-video-count">0 videos</span>
+            </div>
+            <button class="close-sidebar-btn" onclick="toggleSidebar()" title="Cerrar lista">✕</button>
+          </div>
+
+          <div class="sidebar-search-box">
+            <input type="text" id="video-search-input" class="search-input" placeholder="Buscar video en la lista..." oninput="filterVideos(this.value)">
+          </div>
+
+          <div class="sidebar-video-list" id="sidebar-video-list">
+            <div class="loading-spinner">
+              <div class="spinner"></div>
+              <span>Obteniendo lista de videos...</span>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <!-- YouTube IFrame API -->
+  <script src="https://www.youtube.com/iframe_api"></script>
+
+  <script>
+    if (window.location.protocol === 'file:') {
+      const banner = document.getElementById('file-protocol-warning');
+      if (banner) banner.style.display = 'block';
+    }
+
+    const PLAYLISTS_CONFIG = [
+      {
+        id: "PLyV2mQaaLOIAJhGd8S0rWXpxRQORyDo6g",
+        number: 1,
+        title: "QUÍMICA INORGÁNICA: Curso completo",
+        firstVideoId: "-nBFRJ9uLNU",
+        coverImage: "https://img.youtube.com/vi/-nBFRJ9uLNU/hqdefault.jpg",
+        description: `Esta es la descripción personalizada para la Playlist 1.
+Aquí puedes explicar qué aprenderán tus usuarios, el contenido temático de la playlist, enlaces a materiales o cualquier nota importante.
+
+• Tema 1: Introducción y conceptos fundamentales.
+• Tema 2: Ejercicios guiados paso a paso.
+• Tema 3: Proyecto final y conclusiones.`
+      },
+      {
+        id: "PLm9dCZ_UAizfXLMfreVt0zsq50OUe6r2B",
+        number: 2,
+        title: "FORMULACION INORGANICA DESDE CERO",
+        firstVideoId: "N6EAu6Cz4u4",
+        coverImage: "https://img.youtube.com/vi/N6EAu6Cz4u4/hqdefault.jpg",
+        description: `Esta es la descripción personalizada para la Playlist 2.
+Personaliza este texto con tus propios comentarios, instrucciones o notas relevantes.`
+      },
+      {
+        id: "PLdVvBqCPS5gWqcXJUi46BLQ1oqjCj2AUt",
+        number: 3,
+        title: "Química | Bases de nomenclatura inorgánica",
+        firstVideoId: "",
+        coverImage: "https://img.youtube.com/vi/8nJzuTQveKM/hqdefault.jpg",
+        description: `Esta es la descripción personalizada para la Playlist 3.
+Puedes detallar aquí los capítulos, temas destacados y enlaces de interés de esta serie.`
+      },
+      {
+        id: "PLdVvBqCPS5gVqKMtd7ZdeC8B_AH14qoWV",
+        number: 4,
+        title: "Química | Formulación Inorgánica",
+        firstVideoId: "",
+        coverImage: "https://img.youtube.com/vi/HWi9YZiQGLA/hqdefault.jpg",
+        description: `Esta es la descripción personalizada para la Playlist 4.
+Agrega detalles sobre esta colección, recursos adicionales o información complementaria.`
+      },
+      {
+        id: "PLdVvBqCPS5gVbg2VjDw9KjrTycd9z4om9",
+        number: 5,
+        title: "Nomenclatura inorgánica",
+        firstVideoId: "",
+        coverImage: "https://img.youtube.com/vi/xGEFJp_3i8M/hqdefault.jpg",
+        description: `Esta es la descripción personalizada para la Playlist 5.
+Personaliza este texto libremente según el contenido que desees compartir.`
+      }
+    ];
+
+    let currentPlaylist = null;
+    let ytPlayer = null;
+    let isPlayerReady = false;
+    let currentVideoIndex = 0;
+    let currentVideoIds = [];
+    let videoTitlesCache = {};
+    let isEditingDesc = false;
+
+    function onYouTubeIframeAPIReady() {
+      isPlayerReady = true;
+      if (currentPlaylist && !ytPlayer) {
+        initYouTubePlayer(currentPlaylist.id, 0, currentPlaylist.firstVideoId);
+      }
+    }
+
+    function initYouTubePlayer(playlistId, startIndex = 0, firstVideoId = '') {
+      if (ytPlayer && typeof ytPlayer.destroy === 'function') {
+        try { ytPlayer.destroy(); } catch (e) {}
+        ytPlayer = null;
+      }
+
+      const container = document.getElementById('yt-player-container');
+      
+      const videoPart = firstVideoId ? encodeURIComponent(firstVideoId) : 'videoseries';
+      let originParam = '';
+      if (window.location.origin && window.location.origin !== "null" && window.location.protocol.startsWith('http')) {
+        originParam = `&origin=${encodeURIComponent(window.location.origin)}`;
+      }
+
+      const embedSrc = `https://www.youtube.com/embed/${videoPart}?list=${encodeURIComponent(playlistId)}&index=${startIndex}&autoplay=1&enablejsapi=1&rel=0&playsinline=1${originParam}`;
+
+      container.innerHTML = `
+        <iframe 
+          id="yt-player-iframe"
+          src="${embedSrc}"
+          frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          referrerpolicy="strict-origin-when-cross-origin"
+          allowfullscreen>
+        </iframe>
+      `;
+
+      ytPlayer = new YT.Player('yt-player-iframe', {
+        events: {
+          'onReady': onPlayerReady,
+          'onStateChange': onPlayerStateChange,
+          'onError': onPlayerError
+        }
+      });
+    }
+
+    function onPlayerReady(event) {
+      fetchPlaylistVideos();
+    }
+
+    function onPlayerStateChange(event) {
+      const playBtn = document.getElementById('toggle-play-btn');
+
+      if (event.data === YT.PlayerState.PLAYING) {
+        if (playBtn) playBtn.innerHTML = '⏸ Pausa';
+        updateActiveVideoHighlight();
+      } else if (event.data === YT.PlayerState.PAUSED) {
+        if (playBtn) playBtn.innerHTML = '▶ Reproducir';
+      } else if (event.data === YT.PlayerState.ENDED) {
+        setTimeout(() => {
+          if (ytPlayer && typeof ytPlayer.nextVideo === 'function') {
+            ytPlayer.nextVideo();
+          }
+          updateActiveVideoHighlight();
+        }, 500);
+      }
+
+      if (currentVideoIds.length === 0) {
+        fetchPlaylistVideos();
+      } else {
+        updateActiveVideoHighlight();
+      }
+    }
+
+    function onPlayerError(event) {
+      console.warn("YouTube Player error event:", event.data);
+      if (ytPlayer && typeof ytPlayer.nextVideo === 'function') {
+        ytPlayer.nextVideo();
+      }
+    }
+
+    function fetchPlaylistVideos() {
+      if (!ytPlayer || typeof ytPlayer.getPlaylist !== 'function') return;
+
+      const list = ytPlayer.getPlaylist();
+      if (Array.isArray(list) && list.length > 0) {
+        currentVideoIds = list;
+        renderSidebarVideos(list);
+        updateActiveVideoHighlight();
+
+        if (currentPlaylist && (!currentPlaylist.firstVideoId || currentPlaylist.firstVideoId === "")) {
+          currentPlaylist.firstVideoId = list[0];
+          currentPlaylist.coverImage = `https://img.youtube.com/vi/${list[0]}/hqdefault.jpg`;
+          renderPlaylistsGrid();
+        }
+      } else {
+        setTimeout(() => {
+          if (ytPlayer && typeof ytPlayer.getPlaylist === 'function') {
+            const retryList = ytPlayer.getPlaylist();
+            if (Array.isArray(retryList) && retryList.length > 0) {
+              currentVideoIds = retryList;
+              renderSidebarVideos(retryList);
+              updateActiveVideoHighlight();
+            }
+          }
+        }, 1200);
+      }
+    }
+
+    function renderSidebarVideos(videoIds) {
+      const listContainer = document.getElementById('sidebar-video-list');
+      const countBadge = document.getElementById('sidebar-video-count');
+
+      if (!videoIds || videoIds.length === 0) {
+        listContainer.innerHTML = '<div style="padding:1.5rem; text-align:center; color:#94a3b8; font-size:0.85rem;">Lista cargada. Selecciona los videos en el reproductor.</div>';
+        countBadge.innerText = 'Playlist activa';
+        return;
+      }
+
+      countBadge.innerText = `${videoIds.length} videos`;
+      listContainer.innerHTML = '';
+
+      videoIds.forEach((vidId, index) => {
+        const item = document.createElement('div');
+        item.className = 'video-item';
+        item.id = `video-item-${index}`;
+        item.setAttribute('data-index', index);
+        item.onclick = () => selectVideo(index);
+
+        const thumbUrl = `https://img.youtube.com/vi/${vidId}/mqdefault.jpg`;
+
+        item.innerHTML = `
+          <span class="item-index">${index + 1}</span>
+          <div class="item-thumb-box">
+            <img src="${thumbUrl}" alt="Video ${index + 1}" loading="lazy" onerror="this.src='https://images.unsplash.com/photo-1518770660439-4636190af475?w=160&auto=format&fit=crop&q=80'">
+            <div class="item-playing-icon">▶</div>
+          </div>
+          <div class="item-details">
+            <div class="item-title" id="title-vid-${index}">Video ${index + 1}</div>
+            <div class="item-badge">ID: ${vidId}</div>
+          </div>
+        `;
+
+        listContainer.appendChild(item);
+        fetchVideoTitle(vidId, index);
+      });
+    }
+
+    function fetchVideoTitle(vidId, index) {
+      if (videoTitlesCache[vidId]) {
+        applyVideoTitle(index, videoTitlesCache[vidId]);
+        return;
+      }
+
+      const oEmbedUrl = `https://noembed.com/embed?url=https://www.youtube.com/watch?v=${vidId}`;
+      fetch(oEmbedUrl)
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.title) {
+            videoTitlesCache[vidId] = data.title;
+            applyVideoTitle(index, data.title);
+          }
+        })
+        .catch(() => {});
+    }
+
+    function applyVideoTitle(index, title) {
+      const el = document.getElementById(`title-vid-${index}`);
+      if (el) {
+        el.innerText = title;
+        el.title = title;
+      }
+    }
+
+    function updateActiveVideoHighlight() {
+      if (!ytPlayer || typeof ytPlayer.getPlaylistIndex !== 'function') return;
+
+      const activeIndex = ytPlayer.getPlaylistIndex();
+      if (activeIndex === undefined || activeIndex === -1) return;
+
+      currentVideoIndex = activeIndex;
+
+      const allItems = document.querySelectorAll('.video-item');
+      allItems.forEach((el, idx) => {
+        if (idx === activeIndex) {
+          el.classList.add('active');
+          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } else {
+          el.classList.remove('active');
+        }
+      });
+
+      const total = currentVideoIds.length || 0;
+      const statusText = document.getElementById('playback-index-text');
+      if (total > 0) {
+        statusText.innerText = `Video ${activeIndex + 1} de ${total}`;
+      } else {
+        statusText.innerText = `Reproduciendo video #${activeIndex + 1}`;
+      }
+
+      const prevBtn = document.getElementById('prev-btn');
+      const nextBtn = document.getElementById('next-btn');
+      if (prevBtn) prevBtn.disabled = (activeIndex <= 0);
+      if (nextBtn) nextBtn.disabled = (total > 0 && activeIndex >= total - 1);
+    }
+
+    function selectVideo(index) {
+      if (!ytPlayer) return;
+      if (typeof ytPlayer.playVideoAt === 'function') {
+        ytPlayer.playVideoAt(index);
+      } else if (typeof ytPlayer.loadPlaylist === 'function' && currentPlaylist) {
+        ytPlayer.loadPlaylist({
+          list: currentPlaylist.id,
+          listType: 'playlist',
+          index: index
+        });
+      }
+      setTimeout(updateActiveVideoHighlight, 400);
+    }
+
+    function playNextVideo() {
+      if (ytPlayer && typeof ytPlayer.nextVideo === 'function') {
+        ytPlayer.nextVideo();
+        setTimeout(updateActiveVideoHighlight, 400);
+      }
+    }
+
+    function playPreviousVideo() {
+      if (ytPlayer && typeof ytPlayer.previousVideo === 'function') {
+        ytPlayer.previousVideo();
+        setTimeout(updateActiveVideoHighlight, 400);
+      }
+    }
+
+    function togglePlayPause() {
+      if (!ytPlayer || typeof ytPlayer.getPlayerState !== 'function') return;
+      const state = ytPlayer.getPlayerState();
+      if (state === YT.PlayerState.PLAYING) {
+        ytPlayer.pauseVideo();
+      } else {
+        ytPlayer.playVideo();
+      }
+    }
+
+    function openPlaylist(playlistIndex) {
+      const playlist = PLAYLISTS_CONFIG[playlistIndex];
+      if (!playlist) return;
+
+      currentPlaylist = playlist;
+      currentVideoIds = [];
+
+      document.getElementById('playlist-grid-view').style.display = 'none';
+      document.getElementById('playlist-player-view').style.display = 'block';
+      document.getElementById('header-playlist-btn').style.display = 'inline-flex';
+
+      document.getElementById('current-playlist-tag').innerText = `Playlist #${playlist.number}`;
+      document.getElementById('current-playlist-title').innerText = playlist.title;
+      document.getElementById('desc-box-title').innerText = `Descripción: ${playlist.title}`;
+      
+      const directLink = document.getElementById('open-youtube-direct');
+      if (directLink) {
+        directLink.href = `https://www.youtube.com/playlist?list=${playlist.id}`;
+      }
+
+      const savedDesc = localStorage.getItem(`playlist_desc_${playlist.id}`);
+      const descEl = document.getElementById('playlist-description-text');
+      descEl.innerText = savedDesc !== null ? savedDesc : playlist.description;
+
+      const sidebar = document.getElementById('playlist-sidebar');
+      sidebar.classList.remove('collapsed');
+      updateSidebarToggleButtons(false);
+
+      const searchInput = document.getElementById('video-search-input');
+      if (searchInput) searchInput.value = '';
+
+      initYouTubePlayer(playlist.id, 0, playlist.firstVideoId);
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function goToHome() {
+      if (ytPlayer && typeof ytPlayer.pauseVideo === 'function') {
+        ytPlayer.pauseVideo();
+      }
+      document.getElementById('playlist-player-view').style.display = 'none';
+      document.getElementById('playlist-grid-view').style.display = 'block';
+      document.getElementById('header-playlist-btn').style.display = 'none';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function toggleSidebar() {
+      const sidebar = document.getElementById('playlist-sidebar');
+      const isCollapsed = sidebar.classList.toggle('collapsed');
+      updateSidebarToggleButtons(isCollapsed);
+    }
+
+    function updateSidebarToggleButtons(isCollapsed) {
+      const headerBtnText = document.getElementById('header-btn-text');
+      const toggleLabel = document.getElementById('toggle-sidebar-label');
+      
+      const text = isCollapsed ? 'Mostrar lista al costado' : 'Ocultar lista al costado';
+      if (headerBtnText) headerBtnText.innerText = text;
+      if (toggleLabel) toggleLabel.innerText = text;
+    }
+
+    function filterVideos(query) {
+      const cleanQuery = query.toLowerCase().trim();
+      const items = document.querySelectorAll('.video-item');
+      items.forEach(item => {
+        const text = item.innerText.toLowerCase();
+        if (text.includes(cleanQuery)) {
+          item.style.display = 'flex';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    }
+
+    function toggleEditDescription() {
+      const descEl = document.getElementById('playlist-description-text');
+      const editBtn = document.getElementById('edit-desc-action-btn');
+
+      if (!isEditingDesc) {
+        isEditingDesc = true;
+        descEl.setAttribute('contenteditable', 'true');
+        descEl.focus();
+        editBtn.innerHTML = '💾 Guardar descripción';
+        editBtn.style.background = '#10b981';
+        editBtn.style.color = '#ffffff';
+        editBtn.style.borderColor = '#10b981';
+      } else {
+        isEditingDesc = false;
+        descEl.removeAttribute('contenteditable');
+        const newText = descEl.innerText;
+
+        if (currentPlaylist) {
+          localStorage.setItem(`playlist_desc_${currentPlaylist.id}`, newText);
+          currentPlaylist.description = newText;
+          renderPlaylistsGrid();
+        }
+
+        editBtn.innerHTML = '✏️ Editar descripción';
+        editBtn.style.background = '#1e293b';
+        editBtn.style.color = '#60a5fa';
+        editBtn.style.borderColor = 'var(--border-color)';
+      }
+    }
+
+    function renderPlaylistsGrid() {
+      const gridContainer = document.getElementById('playlists-cards-container');
+      gridContainer.innerHTML = '';
+
+      PLAYLISTS_CONFIG.forEach((pl, index) => {
+        const card = document.createElement('div');
+        card.className = 'playlist-card';
+        card.onclick = () => openPlaylist(index);
+
+        const savedDesc = localStorage.getItem(`playlist_desc_${pl.id}`);
+        const displayDesc = savedDesc !== null ? savedDesc : pl.description;
+
+        card.innerHTML = `
+          <div class="playlist-thumb">
+            <img src="${pl.coverImage}" alt="${pl.title}" onerror="this.src='https://images.unsplash.com/photo-1518770660439-4636190af475?w=600&auto=format&fit=crop&q=80'">
+            <span class="playlist-badge">Playlist #${pl.number}</span>
+            <div class="play-overlay">
+              <div class="play-circle">▶</div>
+            </div>
+          </div>
+          <div class="playlist-card-content">
+            <h3 class="playlist-card-title">${pl.title}</h3>
+            <p class="playlist-card-desc">${displayDesc}</p>
+            <div class="playlist-card-footer">
+              <span>Reproducción continua</span>
+              <span class="footer-action">Abrir lista →</span>
+            </div>
+          </div>
+        `;
+
+        gridContainer.appendChild(card);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      renderPlaylistsGrid();
+    });
+  </script>
+</body>
+</html>
