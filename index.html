@@ -867,214 +867,7 @@
         justify-content: space-between;
       }
     }
-
-    /* SOPORTE ADICIONAL PARA CELULARES — NO MODIFICA LA ESTRUCTURA EXISTENTE */
-    @media (max-width: 480px) {
-      html, body {
-        width: 100%;
-        max-width: 100%;
-        overflow-x: hidden;
-      }
-
-      header {
-        padding: 0.75rem 0.9rem;
-      }
-
-      .brand {
-        min-width: 0;
-        gap: 8px;
-      }
-
-      .brand-icon {
-        width: 36px;
-        height: 36px;
-        min-width: 36px;
-        font-size: 18px;
-      }
-
-      .brand-text {
-        min-width: 0;
-      }
-
-      .brand-text h1 {
-        font-size: 1rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-      }
-
-      main {
-        width: 100%;
-        max-width: 100%;
-        padding: 0.85rem;
-      }
-
-      .section-header {
-        margin-bottom: 1.25rem;
-      }
-
-      .section-header h2 {
-        font-size: 1.5rem;
-      }
-
-      .section-header p {
-        font-size: 0.9rem;
-      }
-
-      .playlists-grid {
-        width: 100%;
-        grid-template-columns: minmax(0, 1fr);
-        gap: 1rem;
-      }
-
-      .playlist-card-content {
-        padding: 1rem;
-      }
-
-      .player-header {
-        align-items: stretch;
-        gap: 8px;
-      }
-
-      .back-btn,
-      .sidebar-toggle-btn {
-        width: 100%;
-        justify-content: center;
-      }
-
-      .active-playlist-info {
-        width: 100%;
-        min-width: 0;
-        flex-wrap: wrap;
-      }
-
-      .active-playlist-title {
-        font-size: 1rem;
-        min-width: 0;
-        overflow-wrap: anywhere;
-      }
-
-      .video-wrapper {
-        border-radius: 8px;
-      }
-
-      .controls-bar {
-        width: 100%;
-        padding: 0.75rem;
-        gap: 8px;
-      }
-
-      .nav-controls {
-        width: 100%;
-        gap: 6px;
-      }
-
-      .control-btn {
-        flex: 1;
-        justify-content: center;
-        min-width: 0;
-        padding: 9px 6px;
-        font-size: 0.78rem;
-      }
-
-      #open-youtube-direct {
-        flex: 1.2;
-      }
-
-      .player-status-badge {
-        width: 100%;
-        flex-wrap: wrap;
-        gap: 7px;
-        font-size: 0.78rem;
-      }
-
-      .description-card {
-        padding: 1rem;
-      }
-
-      .desc-header {
-        gap: 8px;
-        align-items: flex-start;
-      }
-
-      .desc-title-wrap {
-        min-width: 0;
-      }
-
-      .desc-title-wrap h3 {
-        font-size: 1rem;
-      }
-
-      .edit-desc-btn {
-        flex-shrink: 0;
-        padding: 6px 8px;
-        font-size: 0.72rem;
-      }
-
-      .desc-content {
-        font-size: 0.9rem;
-      }
-
-      .playlist-sidebar {
-        width: 100%;
-        max-width: 100%;
-        height: 60vh;
-        max-height: 60vh;
-      }
-
-      .sidebar-header {
-        padding: 0.9rem;
-      }
-
-      .sidebar-title {
-        min-width: 0;
-        font-size: 0.9rem;
-      }
-
-      .video-item {
-        padding: 8px 6px;
-        gap: 7px;
-      }
-
-      .item-index {
-        min-width: 20px;
-        font-size: 0.75rem;
-      }
-
-      .item-thumb-box {
-        width: 82px;
-        height: 46px;
-      }
-
-      .item-title {
-        font-size: 0.78rem;
-      }
-
-      .item-badge {
-        font-size: 0.68rem;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-      }
-
-      .warning-container {
-        align-items: flex-start;
-      }
-    }
-
-  
-    /* CORRECCIÓN: EVITAR DESPLAZAMIENTO AUTOMÁTICO AL INTERACTUAR CON EL VIDEO */
-    @media (max-width: 640px) {
-      html {
-        scroll-behavior: auto !important;
-      }
-
-      .video-wrapper,
-      .video-wrapper iframe {
-        scroll-margin: 0 !important;
-      }
-    }
-</style>
+  </style>
 </head>
 <body>
 
@@ -1250,7 +1043,7 @@ Personaliza este texto con tus propios comentarios, instrucciones o notas releva
 Puedes detallar aquí los capítulos, temas destacados y enlaces de interés de esta serie.`
       },
       {
-        id: "PLdVvBqCPS5gVqKMtd7ZdeC8B_AH14qoWV",
+        id: "PLdVvBqCPS5gWqKMtd7ZdeC8B_AH14qoWV",
         number: 4,
         title: "Química | Formulación Inorgánica",
         firstVideoId: "",
@@ -1456,11 +1249,25 @@ Personaliza este texto libremente según el contenido que desees compartir.`
 
       currentVideoIndex = activeIndex;
 
+      const sidebarList = document.getElementById('sidebar-video-list');
       const allItems = document.querySelectorAll('.video-item');
+
       allItems.forEach((el, idx) => {
         if (idx === activeIndex) {
           el.classList.add('active');
-          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          if (sidebarList) {
+            const elTop = el.offsetTop;
+            const elHeight = el.offsetHeight;
+            const listScrollTop = sidebarList.scrollTop;
+            const listHeight = sidebarList.clientHeight;
+
+            if (elTop < listScrollTop || (elTop + elHeight) > (listScrollTop + listHeight)) {
+              sidebarList.scrollTo({
+                top: elTop - (listHeight / 2) + (elHeight / 2),
+                behavior: 'smooth'
+              });
+            }
+          }
         } else {
           el.classList.remove('active');
         }
