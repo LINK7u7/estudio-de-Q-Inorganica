@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- Cabecera indispensable para evitar el Error 153 de YouTube -->
   <meta name="referrer" content="strict-origin-when-cross-origin">
-  <title>Para estudiar</title>
+  <title>Reproductor de Playlists de YouTube</title>
   <style>
     :root {
       --bg-dark: #0b0f19;
@@ -1043,7 +1043,7 @@ Personaliza este texto con tus propios comentarios, instrucciones o notas releva
 Puedes detallar aquí los capítulos, temas destacados y enlaces de interés de esta serie.`
       },
       {
-        id: "PLdVvBqCPS5gWqKMtd7ZdeC8B_AH14qoWV",
+        id: "PLdVvBqCPS5gVqKMtd7ZdeC8B_AH14qoWV",
         number: 4,
         title: "Química | Formulación Inorgánica",
         firstVideoId: "",
@@ -1249,25 +1249,11 @@ Personaliza este texto libremente según el contenido que desees compartir.`
 
       currentVideoIndex = activeIndex;
 
-      const sidebarList = document.getElementById('sidebar-video-list');
       const allItems = document.querySelectorAll('.video-item');
-
       allItems.forEach((el, idx) => {
         if (idx === activeIndex) {
           el.classList.add('active');
-          if (sidebarList) {
-            const elTop = el.offsetTop;
-            const elHeight = el.offsetHeight;
-            const listScrollTop = sidebarList.scrollTop;
-            const listHeight = sidebarList.clientHeight;
-
-            if (elTop < listScrollTop || (elTop + elHeight) > (listScrollTop + listHeight)) {
-              sidebarList.scrollTo({
-                top: elTop - (listHeight / 2) + (elHeight / 2),
-                behavior: 'smooth'
-              });
-            }
-          }
+          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         } else {
           el.classList.remove('active');
         }
